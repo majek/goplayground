@@ -1,13 +1,13 @@
 package main
 
 import (
-	"strings"
-	"os"
 	"bufio"
-	"net"
-	"io"
 	"flag"
 	"fmt"
+	"io"
+	"net"
+	"os"
+	"strings"
 )
 
 func loadNetworksFile(fname string) []*net.IPNet {
@@ -46,13 +46,12 @@ func loadNetworksFile(fname string) []*net.IPNet {
 	return ipnets
 }
 
-
-func prepareSplit(delimiters string) (func(string)([]string)) {
+func prepareSplit(delimiters string) func(string) []string {
 	m := make(map[rune]bool)
 	for _, c := range delimiters {
 		m[c] = true
 	}
-	fun := func(line string) ([]string) {
+	fun := func(line string) []string {
 		p := make([]string, 0, 4)
 		prev := 0
 		for i, r := range line {
@@ -66,7 +65,6 @@ func prepareSplit(delimiters string) (func(string)([]string)) {
 	return fun
 }
 
-
 var delimiters string
 var fname string
 
@@ -78,9 +76,12 @@ func init() {
 func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, strings.Join([]string{
-			"\"grepnet\" prints out a line only when it contains an IP address from one of the specified networks.",
+			"\"grepnet\" prints out a line only when it contains an " +
+				"IP address from one of the specified networks.",
 			"",
-			"NETWORKFILE is a file that contains a list of matching networks, one in a line. For exampe: \"192.168.0.0/24\" or \"127.0.0.1/8\"",
+			"NETWORKFILE is a file that contains a list of matching " +
+				"networks, one in a line. For exampe: " +
+				"\"192.168.0.0/24\" or \"127.0.0.1/8\"",
 			"",
 			"Usage: grepnet [-delimiters=...] NETWORKFILE",
 			"",
