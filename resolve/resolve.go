@@ -86,7 +86,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Fprintf(os.Stderr, "Server: %s, sending delay: %s (%i pps), retry delay: %s\n",
+	fmt.Fprintf(os.Stderr, "Server: %s, sending delay: %s (%d pps), retry delay: %s\n",
 		dnsServer, sendingDelay, packetsPerSecond, retryDelay)
 
 	domains := make(chan string, concurrency)
