@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -210,6 +211,8 @@ func do_map_guard(domains <-chan string,
 				for _, ip := range da.ips {
 					s = append(s, ip.String())
 				}
+				sort.Sort(sort.StringSlice(s))
+
 				// without trailing dot
 				domain := dr.domain[:len(dr.domain)-1]
 				fmt.Printf("%s, %s\n", domain, strings.Join(s, " "))
