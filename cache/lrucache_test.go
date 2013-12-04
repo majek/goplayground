@@ -7,10 +7,10 @@ import (
 	"time"
 )
 
-func TestBasic(t *testing.T) {
+func TestBasicExpiry(t *testing.T) {
 	t.Parallel()
 	b := NewLRUCache(3)
-	if b.Get("a") != nil {
+	if _, ok := b.Get("a"); ok {
 		t.Error("")
 	}
 
@@ -19,37 +19,37 @@ func TestBasic(t *testing.T) {
 	b.Set("a", "va", now.Add(time.Duration(1*time.Second)))
 	b.Set("c", "vc", now.Add(time.Duration(3*time.Second)))
 
-	if b.Get("a") != "va" {
+	if v, _ := b.Get("a"); v != "va" {
 		t.Error("")
 	}
-	if b.Get("b") != "vb" {
+	if v, _ := b.Get("b"); v != "vb" {
 		t.Error("")
 	}
-	if b.Get("c") != "vc" {
+	if v, _ := b.Get("c"); v != "vc" {
 		t.Error("")
 	}
 
 	b.Set("d", "vd", now.Add(time.Duration(4*time.Second)))
-	if b.Get("a") != nil {
+	if _, ok := b.Get("a"); ok {
 		t.Error("Expecting element A to be evicted")
 	}
 
 	b.Set("e", "ve", now.Add(time.Duration(-4*time.Second)))
-	if b.Get("b") != nil {
+	if _, ok := b.Get("b"); ok {
 		t.Error("Expecting element B to be evicted")
 	}
 
 	b.Set("f", "vf", now.Add(time.Duration(5*time.Second)))
-	if b.Get("e") != nil {
+	if _, ok := b.Get("e"); ok {
 		t.Error("Expecting element E to be evicted")
 	}
 
-	if b.Get("c") == nil {
+	if v, _ := b.Get("c"); v != "vc" {
 		t.Error("Expecting element C to not be evicted")
 	}
 	n := now.Add(time.Duration(10 * time.Second))
-	b.SetNow("g", "vg", now.Add(time.Duration(5*time.Second)), &n)
-	if b.Get("c") != nil {
+	b.SetNow("g", "vg", now.Add(time.Duration(5*time.Second)), n)
+	if _, ok := b.Get("c"); ok {
 		t.Error("Expecting element C to be evicted")
 	}
 
@@ -73,44 +73,123 @@ func TestBasic(t *testing.T) {
 	b.Set("d", "vd", now.Add(time.Duration(4*time.Second)))
 	b.Set("c", "vc", now.Add(time.Duration(3*time.Second)))
 
-	if b.Get("b") != nil {
+	if _, ok := b.Get("b"); ok {
 		t.Error("Expecting miss")
 	}
 
 	b.GetQuiet("miss")
-	if b.GetQuiet("a") != "va" {
+	if v, _ := b.GetQuiet("a"); v != "va" {
 		t.Error("Expecting hit")
 	}
 
 	b.Set("e", "ve", now.Add(time.Duration(5*time.Second)))
-	if b.Get("a") != nil {
+	if _, ok := b.Get("a"); ok {
 		t.Error("Expecting miss")
 	}
 
+	if b.Capacity() != 3 {
+		t.Error("Expecting different capacity")
+	}
 }
 
-func TestPanicOnNil(t *testing.T) {
+func TestBasicNoExpiry(t *testing.T) {
+	t.Parallel()
+	b := NewLRUCache(3)
+	if _, ok := b.Get("a"); ok {
+		t.Error("")
+	}
+
+	b.Set("b", "vb", time.Time{})
+	b.Set("a", "va", time.Time{})
+	b.Set("c", "vc", time.Time{})
+	b.Set("d", "vd", time.Time{})
+
+	if _, ok := b.Get("b"); ok {
+		t.Error("expecting miss")
+	}
+
+	if v, _ := b.Get("a"); v != "va" {
+		t.Error("expecting hit")
+	}
+	if v, _ := b.Get("c"); v != "vc" {
+		t.Error("expecting hit")
+	}
+	if v, _ := b.Get("d"); v != "vd" {
+		t.Error("expecting hit")
+	}
+
+	past := time.Now().Add(time.Duration(-10 * time.Second))
+
+	b.Set("e", "ve", past)
+
+	if _, ok := b.Get("a"); ok {
+		t.Error("expecting miss")
+	}
+	if v, _ := b.Get("e"); v != "ve" {
+		t.Error("expecting hit")
+	}
+
+	// Make sure expired items get evicted before items without expiry
+	b.Set("f", "vf", time.Time{})
+	if _, ok := b.Get("e"); ok {
+		t.Error("expecting miss")
+	}
+
+	r := b.Clear()
+	if b.Len() != 0 || r != 3 {
+		t.Error("Expecting different length")
+	}
+
+	b.Set("c", "vc", time.Time{})
+	b.Set("d", "vd", time.Time{})
+	b.Set("e", "ve", past)
+
+	if b.Len() != 3 {
+		t.Error("Expecting different length")
+	}
+	r = b.Expire()
+	if b.Len() != 2 || r != 1 {
+		t.Error("Expecting different length")
+	}
+	r = b.Clear()
+	if b.Len() != 0 || r != 2 {
+		t.Error("Expecting different length")
+	}
+}
+
+func TestNil(t *testing.T) {
 	t.Parallel()
 	b := NewLRUCache(3)
 
-	recovered := false
-	defer func() {
-		if r := recover(); r != nil {
-			recovered = true
-		}
-	}()
+	// value nil
+	if v, ok := b.Get("a"); v != nil || ok != false {
+		t.Error("expecting miss")
+	}
 
-	b.Set("a", nil, time.Now())
+	b.Set("a", nil, time.Time{})
 
-	if !recovered {
-		t.Error("Expected Set to raise panic")
+	if v, ok := b.Get("a"); v != nil || ok != true {
+		t.Error("expecting hit")
+	}
+
+
+	// value not nil (sanity check)
+	if v, ok := b.Get("b"); v != nil || ok != false {
+		t.Error("expecting miss")
+	}
+
+	b.Set("b", "vb", time.Time{})
+
+	if v, ok := b.Get("b"); v != "vb" || ok != true {
+		t.Error("expecting miss")
 	}
 }
+
 
 func TestExtra(t *testing.T) {
 	t.Parallel()
 	b := NewLRUCache(3)
-	if b.Get("a") != nil {
+	if _, ok := b.Get("a"); ok {
 		t.Error("")
 	}
 
@@ -119,7 +198,7 @@ func TestExtra(t *testing.T) {
 	b.Set("a", "va", now)
 	b.Set("c", "vc", now.Add(time.Duration(3*time.Second)))
 
-	if b.Get("a") != "va" {
+	if v, _ := b.Get("a"); v != "va" {
 		t.Error("expecting value")
 	}
 

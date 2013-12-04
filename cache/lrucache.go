@@ -4,7 +4,7 @@
 //
 //  - Avoids dynamic memory allocations. All memory is allocated
 //    on creation.
-//  - Access is O(1). Modification O(n*log(n)).
+//  - Access is O(1). Modification O(log(n)) if expiry is set, O(1) if expiry is zero.
 //  - Multithreading supported using a mutex lock.
 //
 // Every element in the cache is linked to three data structures:
@@ -23,42 +23,53 @@ import (
 type entry struct {
 	element list.Element // list element. value is a pointer to this entry
 	key     string       // key is a key!
-	value   interface{}  // value must not be nil
+	value   interface{}  //
 	expire  time.Time    // time when the item is expired. it's okay to be stale.
 	index   int          // index for priority queue needs. -1 if entry is free
 }
 
 type LRUCache struct {
 	lock          sync.Mutex
-	table         map[string]*entry
-	priorityQueue PriorityQueue
+	table         map[string]*entry // all entries in table must be in lruList
+	priorityQueue PriorityQueue // some elements from table may be in priorityQueue
 	lruList       list.List // every entry is either used and resides in lruList
 	freeList      list.List // or free and is linked to freeList
 }
 
-// Create new LRU cache instance. Allocate all the needed memory.
-func NewLRUCache(capacity int) *LRUCache {
-	b := &LRUCache{
-		table:         make(map[string]*entry, capacity),
-		priorityQueue: make([]*entry, 0, capacity),
-	}
+// Initialize the LRU cache instance. O(capacity)
+func (b *LRUCache) Init(capacity uint64) {
+	b.table = make(map[string]*entry, capacity)
+	b.priorityQueue = make([]*entry, 0, capacity)
 	b.lruList.Init()
 	b.freeList.Init()
 	heap.Init(&b.priorityQueue)
 
 	// Reserve all the entries in one giant continous block of memory
 	arrayOfEntries := make([]entry, capacity)
-	for i := 0; i < capacity; i++ {
+	for i := uint64(0); i < capacity; i++ {
 		e := &arrayOfEntries[i]
 		e.element.Value = e
 		e.index = -1
 		b.freeList.PushElementBack(&e.element)
 	}
+}
+
+// Create new LRU cache instance. Allocate all the needed memory. O(capacity)
+func NewLRUCache(capacity uint64) *LRUCache {
+	b := &LRUCache{}
+	b.Init(capacity)
 	return b
 }
 
 // Give me the entry with lowest expiry field if it's before now.
 func (b *LRUCache) expiredEntry(now time.Time) *entry {
+	if len(b.priorityQueue) == 0 {
+		return nil
+	}
+
+	if now.IsZero() {
+		now = time.Now()
+	}
 	e := b.priorityQueue[0]
 	if e.expire.Before(now) {
 		return e
@@ -66,7 +77,7 @@ func (b *LRUCache) expiredEntry(now time.Time) *entry {
 	return nil
 }
 
-// Give me the least loved used entry.
+// Give me the least loved entry.
 func (b *LRUCache) leastUsedEntry() *entry {
 	return b.lruList.Back().Value.(*entry)
 }
@@ -85,7 +96,9 @@ func (b *LRUCache) freeSomeEntry(now time.Time) (e *entry, used bool) {
 
 // Move entry from used/lru list to a free list. Clear the entry as well.
 func (b *LRUCache) removeEntry(e *entry) {
-	heap.Remove(&b.priorityQueue, e.index)
+	if (e.index != -1) {
+		heap.Remove(&b.priorityQueue, e.index)
+	}
 	b.lruList.Remove(&e.element)
 	b.freeList.PushElementFront(&e.element)
 	delete(b.table, e.key)
@@ -94,7 +107,9 @@ func (b *LRUCache) removeEntry(e *entry) {
 }
 
 func (b *LRUCache) insertEntry(e *entry) {
-	heap.Push(&b.priorityQueue, e)
+	if (!e.expire.IsZero()) {
+		heap.Push(&b.priorityQueue, e)
+	}
 	b.freeList.Remove(&e.element)
 	b.lruList.PushElementFront(&e.element)
 	b.table[e.key] = e
@@ -108,12 +123,8 @@ func (b *LRUCache) touchEntry(e *entry) {
 // Add an item to the cache overwriting existing one if it
 // exists. Allows specifing current time required to expire an
 // item when no more slots are used. Value must not be
-// nil. O(log(n))
-func (b *LRUCache) SetNow(key string, value interface{}, expire time.Time, now *time.Time) {
-	if value == nil {
-		panic("Value must not be nil!")
-	}
-
+// nil. O(log(n)) if expiry is set, O(1) when clear.
+func (b *LRUCache) SetNow(key string, value interface{}, expire time.Time, now time.Time) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
@@ -123,13 +134,7 @@ func (b *LRUCache) SetNow(key string, value interface{}, expire time.Time, now *
 	if e != nil {
 		used = true
 	} else {
-		var xnow time.Time
-		if now == nil {
-			xnow = time.Now()
-		} else {
-			xnow = *now
-		}
-		e, used = b.freeSomeEntry(xnow)
+		e, used = b.freeSomeEntry(now)
 	}
 	if used {
 		b.removeEntry(e)
@@ -142,44 +147,46 @@ func (b *LRUCache) SetNow(key string, value interface{}, expire time.Time, now *
 }
 
 // Add an item to the cache overwriting existing one if it
-// exists. O(log(n))
+// exists. O(log(n)) if expiry is set, O(1) when clear.
 func (b *LRUCache) Set(key string, value interface{}, expire time.Time) {
-	b.SetNow(key, value, expire, nil)
+	b.SetNow(key, value, expire, time.Time{})
 }
 
 // Get a key from the cache, possibly stale. Update its LRU score. O(1)
-func (b *LRUCache) Get(key string) interface{} {
+func (b *LRUCache) Get(key string) (v interface{}, ok bool) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
 	e := b.table[key]
 	if e == nil {
-		return nil
+		return nil, false
 	}
 
 	b.touchEntry(e)
-	return e.value
+	return e.value, true
 }
 
 // Get a key from the cache, possibly stale. Don't modify its LRU score. O(1)
-func (b *LRUCache) GetQuiet(key string) interface{} {
+func (b *LRUCache) GetQuiet(key string) (v interface{}, ok bool) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
 	e := b.table[key]
 	if e == nil {
-		return nil
+		return nil, false
 	}
 
-	return e.value
+	return e.value, true
 }
 
 // Get a key from the cache, make sure it's not stale. Update its
-// LRU score. O(n*log(n))
+// LRU score. O(log(n)) if the item is expired.
 func (b *LRUCache) GetNotStale(key string) interface{} {
 	return b.GetNotStaleNow(key, time.Now())
 }
 
+// Get a key from the cache, make sure it's not stale. Update its
+// LRU score. O(log(n)) if the item is expired.
 func (b *LRUCache) GetNotStaleNow(key string, now time.Time) interface{} {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -198,7 +205,7 @@ func (b *LRUCache) GetNotStaleNow(key string, now time.Time) interface{} {
 	return e.value
 }
 
-// Get and remove a key from the cache. O(log(n))
+// Get and remove a key from the cache. O(log(n)) if the item is using expiry, O(1) otherwise.
 func (b *LRUCache) Del(key string) interface{} {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -218,12 +225,20 @@ func (b *LRUCache) Clear() int {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	l := b.lruList.Len()
-	// This could be reduced to O(n).
+
+	// First, remove entries that have expiry set
+	l := len(b.priorityQueue)
 	for i := 0; i < l; i++ {
+		// This could be reduced to O(n).
 		b.removeEntry(b.priorityQueue[0])
 	}
-	return l
+
+	// Second, remove all remaining entries
+	r := b.lruList.Len()
+	for i := 0; i < r; i++ {
+		b.removeEntry(b.leastUsedEntry())
+	}
+	return l + r
 }
 
 // Evict all the expired items. O(n*log(n))
@@ -248,7 +263,12 @@ func (b *LRUCache) ExpireNow(now time.Time) int {
 	return i
 }
 
-// Evict all the expired items. O(n*log(n))
+// Number of entries used in the LRU
 func (b *LRUCache) Len() int {
 	return b.lruList.Len()
+}
+
+// Get the total capacity of the LRU
+func (b *LRUCache) Capacity() int {
+	return cap(b.priorityQueue)
 }
