@@ -281,6 +281,9 @@ func (b *LRUCache) Len() int {
 
 // Get the total capacity of the LRU
 func (b *LRUCache) Capacity() int {
-	// no locking neccessary here
-	return cap(b.priorityQueue)
+	// yes. this stupid thing requires locking
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	return b.lruList.Len() + b.freeList.Len()
 }
