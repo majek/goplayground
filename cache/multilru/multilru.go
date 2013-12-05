@@ -16,19 +16,17 @@ type MultiLRUCache struct {
 type MakeCache func(capacity uint) cache.Cache
 
 func (m *MultiLRUCache) Init(buckets, bucket_capacity uint, newCache MakeCache) {
-	mlru := &MultiLRUCache{
-		buckets: buckets,
-		cache:   make([]cache.Cache, buckets),
-	}
+	m.buckets = buckets
+	m.cache = make([]cache.Cache, buckets)
 	for i := uint(0); i < buckets; i++ {
-		mlru.cache[i] = newCache(bucket_capacity)
+		m.cache[i] = newCache(bucket_capacity)
 	}
 }
 
 func NewMultiLRUCache(buckets, bucket_capacity uint, newCache MakeCache) *MultiLRUCache {
-	mlru := &MultiLRUCache{}
-	mlru.Init(buckets, bucket_capacity, newCache)
-	return mlru
+	m := &MultiLRUCache{}
+	m.Init(buckets, bucket_capacity, newCache)
+	return m
 }
 
 func (m *MultiLRUCache) bucketNo(key string) uint {
@@ -93,6 +91,14 @@ func (m *MultiLRUCache) Expire() int {
 	var s int
 	for _, c := range m.cache {
 		s += c.Expire()
+	}
+	return s
+}
+
+func (m *MultiLRUCache) ExpireNow(now time.Time) int {
+	var s int
+	for _, c := range m.cache {
+		s += c.ExpireNow(now)
 	}
 	return s
 }
