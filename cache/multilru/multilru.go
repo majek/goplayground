@@ -1,16 +1,16 @@
 package multilru
 
 import (
+	"github.com/majek/goplayground/cache"
 	"hash"
 	"hash/fnv"
 	"time"
-	"github.com/majek/goplayground/cache"
 )
 
 type MultiLRUCache struct {
 	buckets uint
-	cache []cache.Cache
-	hash hash.Hash
+	cache   []cache.Cache
+	hash    hash.Hash
 }
 
 type MakeCache func(capacity uint) cache.Cache
@@ -18,7 +18,7 @@ type MakeCache func(capacity uint) cache.Cache
 func (m *MultiLRUCache) Init(buckets, bucket_capacity uint, newCache MakeCache) {
 	mlru := &MultiLRUCache{
 		buckets: buckets,
-		cache: make([]cache.Cache, buckets),
+		cache:   make([]cache.Cache, buckets),
 	}
 	for i := uint(0); i < buckets; i++ {
 		mlru.cache[i] = newCache(bucket_capacity)

@@ -20,19 +20,19 @@ import (
 )
 
 type entry struct {
-	element Element // list element. value is a pointer to this entry
-	key     string       // key is a key!
-	value   interface{}  //
-	expire  time.Time    // time when the item is expired. it's okay to be stale.
-	index   int          // index for priority queue needs. -1 if entry is free
+	element Element     // list element. value is a pointer to this entry
+	key     string      // key is a key!
+	value   interface{} //
+	expire  time.Time   // time when the item is expired. it's okay to be stale.
+	index   int         // index for priority queue needs. -1 if entry is free
 }
 
 type LRUCache struct {
 	lock          sync.Mutex
 	table         map[string]*entry // all entries in table must be in lruList
-	priorityQueue PriorityQueue // some elements from table may be in priorityQueue
-	lruList       List // every entry is either used and resides in lruList
-	freeList      List // or free and is linked to freeList
+	priorityQueue PriorityQueue     // some elements from table may be in priorityQueue
+	lruList       List              // every entry is either used and resides in lruList
+	freeList      List              // or free and is linked to freeList
 }
 
 // Initialize the LRU cache instance. O(capacity)
@@ -96,7 +96,7 @@ func (b *LRUCache) freeSomeEntry(now time.Time) (e *entry, used bool) {
 
 // Move entry from used/lru list to a free list. Clear the entry as well.
 func (b *LRUCache) removeEntry(e *entry) {
-	if (e.index != -1) {
+	if e.index != -1 {
 		heap.Remove(&b.priorityQueue, e.index)
 	}
 	b.lruList.Remove(&e.element)
@@ -107,7 +107,7 @@ func (b *LRUCache) removeEntry(e *entry) {
 }
 
 func (b *LRUCache) insertEntry(e *entry) {
-	if (!e.expire.IsZero()) {
+	if !e.expire.IsZero() {
 		heap.Push(&b.priorityQueue, e)
 	}
 	b.freeList.Remove(&e.element)
@@ -224,7 +224,6 @@ func (b *LRUCache) Del(key string) (v interface{}, ok bool) {
 func (b *LRUCache) Clear() int {
 	b.lock.Lock()
 	defer b.lock.Unlock()
-
 
 	// First, remove entries that have expiry set
 	l := len(b.priorityQueue)

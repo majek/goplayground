@@ -172,7 +172,6 @@ func TestNil(t *testing.T) {
 		t.Error("expecting hit")
 	}
 
-
 	// value not nil (sanity check)
 	if v, ok := b.Get("b"); v != nil || ok != false {
 		t.Error("expecting miss")
@@ -184,7 +183,6 @@ func TestNil(t *testing.T) {
 		t.Error("expecting miss")
 	}
 }
-
 
 func TestExtra(t *testing.T) {
 	t.Parallel()

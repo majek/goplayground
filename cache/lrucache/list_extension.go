@@ -19,4 +19,3 @@ func (l *List) PopFront() interface{} {
 	l.Remove(el)
 	return el.Value
 }
-
