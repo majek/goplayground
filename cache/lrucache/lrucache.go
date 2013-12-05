@@ -11,17 +11,16 @@
 // `table` map, `priorityQueue` ordered by expiry and `lruList`
 // ordered by decreasing popularity.
 
-package cache
+package lrucache
 
 import (
 	"container/heap"
-	"github.com/majek/goplayground/cache/list"
 	"sync"
 	"time"
 )
 
 type entry struct {
-	element list.Element // list element. value is a pointer to this entry
+	element Element // list element. value is a pointer to this entry
 	key     string       // key is a key!
 	value   interface{}  //
 	expire  time.Time    // time when the item is expired. it's okay to be stale.
@@ -32,12 +31,12 @@ type LRUCache struct {
 	lock          sync.Mutex
 	table         map[string]*entry // all entries in table must be in lruList
 	priorityQueue PriorityQueue // some elements from table may be in priorityQueue
-	lruList       list.List // every entry is either used and resides in lruList
-	freeList      list.List // or free and is linked to freeList
+	lruList       List // every entry is either used and resides in lruList
+	freeList      List // or free and is linked to freeList
 }
 
 // Initialize the LRU cache instance. O(capacity)
-func (b *LRUCache) Init(capacity uint64) {
+func (b *LRUCache) Init(capacity uint) {
 	b.table = make(map[string]*entry, capacity)
 	b.priorityQueue = make([]*entry, 0, capacity)
 	b.lruList.Init()
@@ -46,7 +45,7 @@ func (b *LRUCache) Init(capacity uint64) {
 
 	// Reserve all the entries in one giant continous block of memory
 	arrayOfEntries := make([]entry, capacity)
-	for i := uint64(0); i < capacity; i++ {
+	for i := uint(0); i < capacity; i++ {
 		e := &arrayOfEntries[i]
 		e.element.Value = e
 		e.index = -1
@@ -55,7 +54,7 @@ func (b *LRUCache) Init(capacity uint64) {
 }
 
 // Create new LRU cache instance. Allocate all the needed memory. O(capacity)
-func NewLRUCache(capacity uint64) *LRUCache {
+func NewLRUCache(capacity uint) *LRUCache {
 	b := &LRUCache{}
 	b.Init(capacity)
 	return b
@@ -68,6 +67,7 @@ func (b *LRUCache) expiredEntry(now time.Time) *entry {
 	}
 
 	if now.IsZero() {
+		// Fill it only when actually used.
 		now = time.Now()
 	}
 	e := b.priorityQueue[0]
@@ -181,43 +181,43 @@ func (b *LRUCache) GetQuiet(key string) (v interface{}, ok bool) {
 
 // Get a key from the cache, make sure it's not stale. Update its
 // LRU score. O(log(n)) if the item is expired.
-func (b *LRUCache) GetNotStale(key string) interface{} {
+func (b *LRUCache) GetNotStale(key string) (value interface{}, ok bool) {
 	return b.GetNotStaleNow(key, time.Now())
 }
 
 // Get a key from the cache, make sure it's not stale. Update its
 // LRU score. O(log(n)) if the item is expired.
-func (b *LRUCache) GetNotStaleNow(key string, now time.Time) interface{} {
+func (b *LRUCache) GetNotStaleNow(key string, now time.Time) (value interface{}, ok bool) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
 	e := b.table[key]
 	if e == nil {
-		return nil
+		return nil, false
 	}
 
 	if e.expire.Before(now) {
 		b.removeEntry(e)
-		return nil
+		return nil, false
 	}
 
 	b.touchEntry(e)
-	return e.value
+	return e.value, true
 }
 
 // Get and remove a key from the cache. O(log(n)) if the item is using expiry, O(1) otherwise.
-func (b *LRUCache) Del(key string) interface{} {
+func (b *LRUCache) Del(key string) (v interface{}, ok bool) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
 	e := b.table[key]
 	if e == nil {
-		return nil
+		return nil, false
 	}
 
 	value := e.value
 	b.removeEntry(e)
-	return value
+	return value, true
 }
 
 // Evict all items from the cache. O(n*log(n))
@@ -265,10 +265,15 @@ func (b *LRUCache) ExpireNow(now time.Time) int {
 
 // Number of entries used in the LRU
 func (b *LRUCache) Len() int {
+	// yes. this stupid thing requires locking
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
 	return b.lruList.Len()
 }
 
 // Get the total capacity of the LRU
 func (b *LRUCache) Capacity() int {
+	// no locking neccessary here
 	return cap(b.priorityQueue)
 }

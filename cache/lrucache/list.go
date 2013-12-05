@@ -9,7 +9,7 @@
 //		// do something with e.Value
 //	}
 //
-package list
+package lrucache
 
 // Element is an element of a linked list.
 type Element struct {

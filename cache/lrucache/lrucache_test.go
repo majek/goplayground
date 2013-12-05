@@ -1,4 +1,4 @@
-package cache
+package lrucache
 
 import (
 	"math/rand"
@@ -202,13 +202,13 @@ func TestExtra(t *testing.T) {
 		t.Error("expecting value")
 	}
 
-	if b.GetNotStale("a") != nil {
+	if _, ok := b.GetNotStale("a"); ok {
 		t.Error("not expecting value")
 	}
-	if b.GetNotStale("miss") != nil {
+	if _, ok := b.GetNotStale("miss"); ok {
 		t.Error("not expecting value")
 	}
-	if b.GetNotStale("c") != "vc" {
+	if v, _ := b.GetNotStale("c"); v != "vc" {
 		t.Error("expecting hit")
 	}
 

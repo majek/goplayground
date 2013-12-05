@@ -1,4 +1,4 @@
-package list
+package lrucache
 
 func (l *List) PushElementFront(e *Element) *Element {
 	return l.insert(e, &l.root)
