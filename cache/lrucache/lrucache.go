@@ -84,7 +84,7 @@ func (b *LRUCache) leastUsedEntry() *entry {
 
 func (b *LRUCache) freeSomeEntry(now time.Time) (e *entry, used bool) {
 	if b.freeList.Len() > 0 {
-		return b.freeList.PopFront().(*entry), false
+		return b.freeList.Front().Value.(*entry), false
 	}
 
 	e = b.expiredEntry(now)
