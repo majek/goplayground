@@ -5,14 +5,18 @@ import (
 	"github.com/majek/goplayground/cache/lrucache"
 	"testing"
 	"time"
+	"math/rand"
+	"runtime"
 )
+
+func makeBucket(capacity uint) cache.Cache {
+	return lrucache.NewLRUCache(capacity)
+}
+
 
 func TestBasic(t *testing.T) {
 	t.Parallel()
 
-	makeBucket := func(capacity uint) cache.Cache {
-		return lrucache.NewLRUCache(capacity)
-	}
 
 	m := NewMultiLRUCache(2, 3, makeBucket)
 
@@ -97,5 +101,82 @@ func TestBasic(t *testing.T) {
 
 	if _, ok := m.GetNotStale("yy"); ok {
 		t.Error("expected miss")
+	}
+}
+
+
+
+func randomString(l int) string {
+	bytes := make([]byte, l)
+	for i := 0; i < l; i++ {
+		bytes[i] = byte(65 + rand.Intn(90-65))
+	}
+	return string(bytes)
+}
+
+func createFilledBucket(expire time.Time) cache.Cache {
+	b := NewMultiLRUCache(4, 250, makeBucket)
+	for i := 0; i < 1000; i++ {
+		b.Set(randomString(2), "value", expire)
+	}
+	return b
+}
+
+func BenchmarkConcurrentGet(bb *testing.B) {
+	b := createFilledBucket(time.Now().Add(time.Duration(4)))
+
+	cpu := runtime.GOMAXPROCS(0)
+	ch := make(chan bool)
+	worker := func() {
+		for i := 0; i < bb.N/cpu; i++ {
+			b.Get(randomString(2))
+		}
+		ch <- true
+	}
+	for i := 0; i < cpu; i++ {
+		go worker()
+	}
+	for i := 0; i < cpu; i++ {
+		_ = <-ch
+	}
+}
+
+func BenchmarkConcurrentSet(bb *testing.B) {
+	b := createFilledBucket(time.Now().Add(time.Duration(4)))
+
+	cpu := runtime.GOMAXPROCS(0)
+	ch := make(chan bool)
+	worker := func() {
+		for i := 0; i < bb.N/cpu; i++ {
+			expire := time.Now().Add(time.Duration(4 * time.Second))
+			b.Set(randomString(2), "v", expire)
+		}
+		ch <- true
+	}
+	for i := 0; i < cpu; i++ {
+		go worker()
+	}
+	for i := 0; i < cpu; i++ {
+		_ = <-ch
+	}
+}
+
+// No expiry
+func BenchmarkConcurrentSetNX(bb *testing.B) {
+	b := createFilledBucket(time.Time{})
+
+	cpu := runtime.GOMAXPROCS(0)
+	ch := make(chan bool)
+	worker := func() {
+		for i := 0; i < bb.N/cpu; i++ {
+			b.Set(randomString(2), "v", time.Time{})
+		}
+		ch <- true
+	}
+	for i := 0; i < cpu; i++ {
+		go worker()
+	}
+	for i := 0; i < cpu; i++ {
+		_ = <-ch
 	}
 }

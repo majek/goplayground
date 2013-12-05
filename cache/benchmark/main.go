@@ -31,18 +31,20 @@ func main() {
 	}
 
 	for _, capacity := range(list_of_capacities) {
-		m := make([]GenericCache, 2)
+		m := make([]GenericCache, 3)
 
 		fmt.Printf("[*] Capacity=%v Keys=%v KeySpace=%v\n", capacity, number_of_keys, int(math.Pow(90-65.,  float64(key_length))))
-		fmt.Printf("\t\tvitess\t\tmajek\n")
+		fmt.Printf("\t\tvitess\t\tLRUCache\tMultiLRUCache-4\n")
 
 		tc0 := time.Now()
 		m[0] = (GenericCache)(NewVCache(capacity))
 		tc1 := time.Now()
-		m[1] = (GenericCache)(NewMCache(capacity))
+		m[1] = (GenericCache)(NewMCache(capacity, makeLRUCache))
 		tc2 := time.Now()
+		m[2] = (GenericCache)(NewMCache(capacity, makeMultiLRU))
+		tc3 := time.Now()
 
-		fmt.Printf("create\t\t%-10v\t%v\n", tc1.Sub(tc0), tc2.Sub(tc1))
+		fmt.Printf("create\t\t%-10v\t%-10v\t%v\n", tc1.Sub(tc0), tc2.Sub(tc1), tc3.Sub(tc2))
 
 		fmt.Printf("Get (miss)")
 		for _, c := range m {
