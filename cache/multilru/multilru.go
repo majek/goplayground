@@ -3,7 +3,7 @@ package multilru
 import (
 	"github.com/majek/goplayground/cache"
 	"hash"
-	"hash/fnv"
+	"hash/crc32"
 	"time"
 )
 
@@ -12,6 +12,7 @@ type MultiLRUCache struct {
 	cache   []cache.Cache
 	hash    hash.Hash
 }
+
 
 type MakeCache func(capacity uint) cache.Cache
 
@@ -30,7 +31,7 @@ func NewMultiLRUCache(buckets, bucket_capacity uint, newCache MakeCache) *MultiL
 }
 
 func (m *MultiLRUCache) bucketNo(key string) uint {
-	h := fnv.New32a() // Arbitrary choice. Any fast hash will do.
+	h := crc32.NewIEEE() // Arbitrary choice. Any fast hash will do.
 	h.Write([]byte(key))
 	return uint(h.Sum32()) % m.buckets
 }

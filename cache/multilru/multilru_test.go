@@ -83,9 +83,6 @@ func TestBasic(t *testing.T) {
 
 	m.SetNow("yy", "vyy", past, past)
 	m.SetNow("zz", "vzz", time.Time{}, time.Now())
-	if _, ok := m.Get("yy"); ok {
-		t.Error("expected miss")
-	}
 
 	m.GetQuiet("yy")
 	m.GetQuiet("yy")
