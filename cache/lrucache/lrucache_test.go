@@ -184,6 +184,23 @@ func TestNil(t *testing.T) {
 	}
 }
 
+
+func TestZeroLength(t *testing.T) {
+	t.Parallel()
+	b := NewLRUCache(0)
+
+	if _, ok := b.Get("a"); ok {
+		t.Error("Expected miss")
+	}
+
+	b.Set("a", "va", time.Time{})
+	if _, ok := b.Get("a"); ok {
+		t.Error("Expected miss")
+	}
+
+	b.Clear()
+}
+
 func TestExtra(t *testing.T) {
 	t.Parallel()
 	b := NewLRUCache(3)

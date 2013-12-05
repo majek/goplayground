@@ -91,6 +91,11 @@ func (b *LRUCache) freeSomeEntry(now time.Time) (e *entry, used bool) {
 	if e != nil {
 		return e, true
 	}
+
+	if b.lruList.Len() == 0 {
+		return nil, false
+	}
+
 	return b.leastUsedEntry(), true
 }
 
@@ -135,6 +140,9 @@ func (b *LRUCache) SetNow(key string, value interface{}, expire time.Time, now t
 		used = true
 	} else {
 		e, used = b.freeSomeEntry(now)
+		if e == nil {
+			return
+		}
 	}
 	if used {
 		b.removeEntry(e)
