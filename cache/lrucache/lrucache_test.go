@@ -184,6 +184,40 @@ func TestNil(t *testing.T) {
 	}
 }
 
+func rec(foo func()) (recovered int) {
+	recovered = 0
+	defer func() {
+		if r := recover(); r != nil {
+			recovered += 1
+		}
+	}()
+	foo()
+	return recovered
+}
+
+func TestPanicByValue(t *testing.T) {
+	t.Parallel()
+	b := NewLRUCache(3)
+
+	b.Set("a", "a", time.Time{})
+
+	c := *b
+	r := rec(func(){
+		c.Del("a")
+	})
+	if r != 1 {
+		t.Error("Expecting panic")
+	}
+
+	b.Del("a")
+
+	r = rec(func(){
+		c.Set("a", "A", time.Time{})
+	})
+	if r != 1 {
+		t.Error("Expecting panic")
+	}
+}
 
 func TestZeroLength(t *testing.T) {
 	t.Parallel()
