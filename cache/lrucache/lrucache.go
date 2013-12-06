@@ -101,6 +101,10 @@ func (b *LRUCache) freeSomeEntry(now time.Time) (e *entry, used bool) {
 
 // Move entry from used/lru list to a free list. Clear the entry as well.
 func (b *LRUCache) removeEntry(e *entry) {
+	if e.element.list != &b.lruList {
+		panic("list lruList")
+	}
+
 	if e.index != -1 {
 		heap.Remove(&b.priorityQueue, e.index)
 	}
@@ -112,6 +116,10 @@ func (b *LRUCache) removeEntry(e *entry) {
 }
 
 func (b *LRUCache) insertEntry(e *entry) {
+	if e.element.list != &b.freeList {
+		panic("list freeList")
+	}
+
 	if !e.expire.IsZero() {
 		heap.Push(&b.priorityQueue, e)
 	}
