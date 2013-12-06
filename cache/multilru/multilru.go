@@ -31,9 +31,8 @@ func NewMultiLRUCache(buckets, bucket_capacity uint, newCache MakeCache) *MultiL
 }
 
 func (m *MultiLRUCache) bucketNo(key string) uint {
-	h := crc32.NewIEEE() // Arbitrary choice. Any fast hash will do.
-	h.Write([]byte(key))
-	return uint(h.Sum32()) % m.buckets
+	// Arbitrary choice. Any fast hash will do.
+	return uint(crc32.ChecksumIEEE([]byte(key))) % m.buckets
 }
 
 func (m *MultiLRUCache) Set(key string, value interface{}, expire time.Time) {
