@@ -11,9 +11,8 @@ func makeLRUCache(capacity uint64) mcache.Cache {
 	return lrucache.NewLRUCache(uint(capacity))
 }
 func makeMultiLRU(capacity uint64) mcache.Cache {
-	return multilru.NewMultiLRUCache(4, uint(capacity/4), func(capacity uint) mcache.Cache {
-		return lrucache.NewLRUCache(capacity)
-	})
+	shards := uint(2)
+	return multilru.NewMultiLRUCache(shards, uint(capacity)/shards)
 }
 
 type MCache struct {

@@ -1,7 +1,7 @@
 package multilru
 
 import (
-	"github.com/majek/goplayground/cache"
+	"github.com/majek/goplayground/cache/lrucache"
 	"hash"
 	"hash/crc32"
 	"time"
@@ -9,24 +9,23 @@ import (
 
 type MultiLRUCache struct {
 	buckets uint
-	cache   []cache.Cache
+	cache   []*lrucache.LRUCache
 	hash    hash.Hash
 }
 
 
-type MakeCache func(capacity uint) cache.Cache
-
-func (m *MultiLRUCache) Init(buckets, bucket_capacity uint, newCache MakeCache) {
+// Using this constructor is almost always wrong. Use NewMultiLRUCache instead.
+func (m *MultiLRUCache) Init(buckets, bucket_capacity uint) {
 	m.buckets = buckets
-	m.cache = make([]cache.Cache, buckets)
+	m.cache = make([]*lrucache.LRUCache, buckets)
 	for i := uint(0); i < buckets; i++ {
-		m.cache[i] = newCache(bucket_capacity)
+		m.cache[i] = lrucache.NewLRUCache(bucket_capacity)
 	}
 }
 
-func NewMultiLRUCache(buckets, bucket_capacity uint, newCache MakeCache) *MultiLRUCache {
+func NewMultiLRUCache(buckets, bucket_capacity uint) *MultiLRUCache {
 	m := &MultiLRUCache{}
-	m.Init(buckets, bucket_capacity, newCache)
+	m.Init(buckets, bucket_capacity)
 	return m
 }
 

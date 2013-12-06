@@ -2,23 +2,17 @@ package multilru
 
 import (
 	"github.com/majek/goplayground/cache"
-	"github.com/majek/goplayground/cache/lrucache"
 	"testing"
 	"time"
 	"math/rand"
 	"runtime"
 )
 
-func makeBucket(capacity uint) cache.Cache {
-	return lrucache.NewLRUCache(capacity)
-}
-
-
 func TestBasic(t *testing.T) {
 	t.Parallel()
 
 
-	m := NewMultiLRUCache(2, 3, makeBucket)
+	m := NewMultiLRUCache(2, 3)
 
 	if m.Capacity() != 6 {
 		t.Error("expecting different capacity")
@@ -112,7 +106,7 @@ func randomString(l int) string {
 }
 
 func createFilledBucket(expire time.Time) cache.Cache {
-	b := NewMultiLRUCache(4, 250, makeBucket)
+	b := NewMultiLRUCache(4, 250)
 	for i := 0; i < 1000; i++ {
 		b.Set(randomString(2), "value", expire)
 	}
