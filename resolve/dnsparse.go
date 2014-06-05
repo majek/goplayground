@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-func unpackDns(msg []byte) (domain string, id uint16, ips []net.IP) {
+func unpackDns(msg []byte, dnsType uint16) (domain string, id uint16, ips []net.IP) {
 	d := new(dnsMsg)
 	if !d.Unpack(msg) {
 		// fmt.Fprintf(os.Stderr, "dns error (unpacking)\n")
@@ -26,20 +26,25 @@ func unpackDns(msg []byte) (domain string, id uint16, ips []net.IP) {
 		return
 	}
 
-	_, addrs, err := answer(domain, "server", d, dnsTypeA)
+	_, addrs, err := answer(domain, "server", d, dnsType)
 	if err == nil {
-		ips = convertRR_A(addrs)
+		switch (dnsType) {
+		case dnsTypeA:
+			ips = convertRR_A(addrs)
+		case dnsTypeAAAA:
+			ips = convertRR_AAAA(addrs)
+		}
 	}
 	return
 }
 
-func packDns(domain string, id uint16) []byte {
+func packDns(domain string, id uint16, dnsType uint16) []byte {
 
 	out := new(dnsMsg)
 	out.id = id
 	out.recursion_desired = true
 	out.question = []dnsQuestion{
-		{domain, dnsTypeA, dnsClassINET},
+		{domain, dnsType, dnsClassINET},
 	}
 
 	msg, ok := out.Pack()

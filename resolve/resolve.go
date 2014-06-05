@@ -47,6 +47,7 @@ var dnsServer string
 var packetsPerSecond int
 var retryTime string
 var verbose bool
+var ipv6 bool
 
 func init() {
 	flag.StringVar(&dnsServer, "server", "8.8.8.8:53",
@@ -59,6 +60,8 @@ func init() {
 		"Resend unanswered query after RETRY")
 	flag.BoolVar(&verbose, "v", false,
 		"Verbose logging")
+	flag.BoolVar(&ipv6, "6", false,
+		"Ipv6 - ask for AAAA, not A")
 }
 
 func main() {
@@ -246,7 +249,13 @@ func do_send(c net.Conn, tryResolving <-chan *domainRecord) {
 	for {
 		dr := <-tryResolving
 
-		msg := packDns(dr.domain, dr.id)
+		var t uint16
+		if !ipv6 {
+			t = dnsTypeA
+		} else {
+			t = dnsTypeAAAA
+		}
+		msg := packDns(dr.domain, dr.id, t)
 
 		_, err := c.Write(msg)
 		if err != nil {
@@ -266,7 +275,13 @@ func do_receive(c net.Conn, resolved chan<- *domainAnswer) {
 			os.Exit(1)
 		}
 
-		domain, id, ips := unpackDns(buf[:n])
+		var t uint16
+		if !ipv6 {
+			t = dnsTypeA
+		} else {
+			t = dnsTypeAAAA
+		}
+		domain, id, ips := unpackDns(buf[:n], t)
 		resolved <- &domainAnswer{id, domain, ips}
 	}
 }

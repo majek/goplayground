@@ -922,3 +922,13 @@ func convertRR_A(records []dnsRR) []net.IP {
 	}
 	return addrs
 }
+
+func convertRR_AAAA(records []dnsRR) []net.IP {
+        addrs := make([]net.IP, len(records))
+        for i, rr := range records {
+                a := make(net.IP, net.IPv6len)
+                copy(a, rr.(*dnsRR_AAAA).AAAA[:])
+                addrs[i] = a
+        }
+        return addrs
+}
