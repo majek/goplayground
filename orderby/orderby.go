@@ -101,6 +101,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 			os.Exit(1)
 		}
+		line = strings.TrimSpace(line)
 		key := split(line)[0]
 		m[key] = append(m[key], line)
 	}
